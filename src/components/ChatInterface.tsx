@@ -14,6 +14,7 @@ interface ChatInterfaceProps {
   availableAgents: Agent[];
   onSendMessage: (content: string, type?: Message['type']) => void;
   onAgentChange: (agent: Agent) => void;
+  onCodeGeneration?: (code: string) => void;
   className?: string;
 }
 
@@ -22,6 +23,7 @@ export function ChatInterface({
   availableAgents, 
   onSendMessage, 
   onAgentChange,
+  onCodeGeneration,
   className 
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
