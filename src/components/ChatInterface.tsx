@@ -37,10 +37,19 @@ export function ChatInterface({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || chatState.isTyping) return;
-    
-    const messageType = input.startsWith('*') ? 'command' : 'text';
-    onSendMessage(input, messageType);
+
+    // Validate input
+    const trimmedInput = input.trim();
+    if (!trimmedInput || chatState.isTyping) return;
+
+    // Validate length (max 5000 characters)
+    if (trimmedInput.length > 5000) {
+      console.warn('Message too long. Maximum 5000 characters allowed.');
+      return;
+    }
+
+    const messageType = trimmedInput.startsWith('*') ? 'command' : 'text';
+    onSendMessage(trimmedInput, messageType);
     setInput("");
   };
 
@@ -65,19 +74,24 @@ export function ChatInterface({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <div
+                className="w-2 h-2 bg-green-500 rounded-full animate-pulse"
+                aria-label="Agent online status"
+              />
               <span className="text-sm font-medium">Active Agent</span>
             </div>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs" aria-label="Current active agent">
               {chatState.activeAgent.name}
             </Badge>
           </div>
-          
+
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-xs"
+            aria-label="Switch to different agent"
+            aria-expanded={isExpanded}
           >
             Switch Agent
           </Button>
@@ -175,25 +189,33 @@ export function ChatInterface({
               placeholder={`Message ${chatState.activeAgent.name}... (use * for commands)`}
               disabled={chatState.isTyping}
               className="pr-10"
+              maxLength={5000}
+              aria-label="Message input"
+              aria-describedby="input-help"
             />
             {input.startsWith('*') && (
-              <Badge variant="secondary" className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">
+              <Badge
+                variant="secondary"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs"
+                aria-label="Command mode indicator"
+              >
                 CMD
               </Badge>
             )}
           </div>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             disabled={!input.trim() || chatState.isTyping}
             size="sm"
+            aria-label="Send message"
           >
             <Send className="h-4 w-4" />
           </Button>
         </form>
         
-        <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground" id="input-help">
           <span>Press Enter to send, Shift+Enter for new line</span>
-          <span>Commands start with *</span>
+          <span>Commands start with * (max 5000 characters)</span>
         </div>
       </div>
     </div>

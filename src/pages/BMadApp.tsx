@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Project } from "../types/bmad";
 import { agents } from "../data/agents";
 import { workflowPhases } from "../data/workflows";
@@ -9,6 +9,7 @@ import { WorkflowProgress } from "../components/WorkflowProgress";
 import { LivePreview } from "../components/preview/LivePreview";
 import { VisualBuilder } from "../components/builder/VisualBuilder";
 import { DocumentManager } from "../components/documents/DocumentManager";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,11 +49,11 @@ export default function BMadApp() {
   const [buildErrors, setBuildErrors] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('chat');
 
-  const handleCodeGeneration = (code: string) => {
+  const handleCodeGeneration = useCallback((code: string) => {
     setIsBuilding(true);
     setGeneratedCode(code);
     setBuildErrors([]); // Clear previous errors
-    
+
     // Simulate build process
     setTimeout(() => {
       setIsBuilding(false);
@@ -61,7 +62,7 @@ export default function BMadApp() {
         setBuildErrors(['Example build error: Component not found', 'Warning: Unused variable']);
       }
     }, 2000);
-  };
+  }, []);
 
   const handleRefreshPreview = () => {
     if (generatedCode) {
@@ -70,29 +71,43 @@ export default function BMadApp() {
   };
 
   const handleOpenExternal = () => {
-    // Open preview in new window
-    const newWindow = window.open('about:blank', '_blank');
-    if (newWindow) {
-      newWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head><title>BMAD Preview</title></head>
-          <body>
-            <div id="root"></div>
-            <script>${generatedCode}</script>
-          </body>
-        </html>
-      `);
-    }
+    // Create a blob URL for safer preview handling
+    const previewHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>BMAD Preview</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body>
+          <div id="root"></div>
+          <script>
+            // Sandboxed preview - code is displayed, not executed directly
+            const codeContainer = document.getElementById('root');
+            codeContainer.innerHTML = \`${generatedCode.replace(/`/g, '\\`')}\`;
+          </script>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([previewHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+
+    // Clean up blob URL after a delay
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <ProjectHeader project={project} />
-      
-      <div className="flex-1 flex gap-6 p-6">
-        {/* Left Panel - Chat & Documents */}
-        <div className="flex-1 flex flex-col">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background flex flex-col">
+        <ProjectHeader project={project} />
+
+        <div className="flex-1 flex gap-6 p-6">
+          {/* Left Panel - Chat & Documents */}
+          <div className="flex-1 flex flex-col">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="chat" className="flex items-center gap-2">
@@ -189,5 +204,6 @@ export default function BMadApp() {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
