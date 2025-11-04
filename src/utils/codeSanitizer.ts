@@ -138,7 +138,15 @@ export function stripHtml(html: string): string {
   if (!html) return '';
 
   try {
-    return DOMPurify.sanitize(html, { ALLOWED_TAGS: [] });
+    const sanitized = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+
+    if (typeof document !== 'undefined') {
+      const container = document.createElement('div');
+      container.innerHTML = sanitized;
+      return container.textContent ?? '';
+    }
+
+    return sanitized.replace(/<[^>]+>/g, '');
   } catch (error) {
     console.error('Strip HTML error:', error);
     return '';

@@ -32,14 +32,15 @@ export function ChatInterface({
   const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const lastMessageRef = useRef<number>(0);
+  const renderedMessageCountRef = useRef<number>(chatState.messages.length);
+  const lastMessageTimestampRef = useRef<number>(0);
   const { toast } = useToast();
 
   // Only scroll when new messages are added, not on every change
   useEffect(() => {
-    if (chatState.messages.length > lastMessageRef.current) {
+    if (chatState.messages.length > renderedMessageCountRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      lastMessageRef.current = chatState.messages.length;
+      renderedMessageCountRef.current = chatState.messages.length;
     }
   }, [chatState.messages.length]);
 
@@ -79,7 +80,7 @@ export function ChatInterface({
 
     // Rate limiting check
     const now = Date.now();
-    if (now - lastMessageRef.current < VALIDATION.RATE_LIMIT_DELAY) {
+    if (now - lastMessageTimestampRef.current < VALIDATION.RATE_LIMIT_DELAY) {
       toast({
         title: "Slow Down",
         description: ERROR_MESSAGES.MESSAGE_RATE_LIMIT,
@@ -88,7 +89,7 @@ export function ChatInterface({
       return;
     }
 
-    lastMessageRef.current = now;
+    lastMessageTimestampRef.current = now;
     const messageType = trimmedInput.startsWith('*') ? 'command' : 'text';
     onSendMessage(trimmedInput, messageType);
     setInput("");
@@ -154,68 +155,70 @@ export function ChatInterface({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto bg-background">
-        {chatState.messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full p-8">
-            <Card className="p-8 text-center max-w-md">
-              <div className="mb-4">
-                <Sparkles className="h-12 w-12 mx-auto text-primary/60" />
-              </div>
-              <h3 className="font-semibold mb-2">Welcome to BMAD UI Builder</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Start your AI-driven development workflow with the {chatState.activeAgent.name}
-              </p>
-              <div className="space-y-2">
-                {suggestedCommands.map((cmd) => (
-                  <Button
-                    key={cmd.command}
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start text-xs"
-                    onClick={() => setInput(cmd.command)}
-                  >
-                    <Command className="h-3 w-3 mr-2" />
-                    <span className="font-mono">{cmd.command}</span>
-                    <span className="ml-2 text-muted-foreground">- {cmd.description}</span>
-                  </Button>
-                ))}
-              </div>
-            </Card>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {chatState.messages.map((message, index) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                agent={availableAgents.find(a => a.id === message.agentId) || chatState.activeAgent}
-                isLatest={index === chatState.messages.length - 1}
-              />
-            ))}
-            
-            {chatState.isTyping && (
-              <div className="flex gap-3 p-4 animate-fade-in">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <div className="flex flex-col min-h-full">
+          {chatState.messages.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <Card className="p-8 text-center max-w-md">
+                <div className="mb-4">
+                  <Sparkles className="h-12 w-12 mx-auto text-primary/60" />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold text-sm">{chatState.activeAgent.name}</span>
-                    <Badge variant="secondary" className="text-xs">typing...</Badge>
+                <h3 className="font-semibold mb-2">Welcome to BMAD UI Builder</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Start your AI-driven development workflow with the {chatState.activeAgent.name}
+                </p>
+                <div className="space-y-2">
+                  {suggestedCommands.map((cmd) => (
+                    <Button
+                      key={cmd.command}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-xs"
+                      onClick={() => setInput(cmd.command)}
+                    >
+                      <Command className="h-3 w-3 mr-2" />
+                      <span className="font-mono">{cmd.command}</span>
+                      <span className="ml-2 text-muted-foreground">- {cmd.description}</span>
+                    </Button>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <div className="flex-1 space-y-1">
+              {chatState.messages.map((message, index) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  agent={availableAgents.find(a => a.id === message.agentId) || chatState.activeAgent}
+                  isLatest={index === chatState.messages.length - 1}
+                />
+              ))}
+            </div>
+          )}
+
+          {chatState.isTyping && (
+            <div className="flex gap-3 p-4 animate-fade-in">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-semibold text-sm">{chatState.activeAgent.name}</span>
+                  <Badge variant="secondary" className="text-xs">typing...</Badge>
+                </div>
+                <Card className="p-3 bg-muted/50">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce delay-100" />
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce delay-200" />
                   </div>
-                  <Card className="p-3 bg-muted/50">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce delay-100" />
-                      <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce delay-200" />
-                    </div>
-                  </Card>
-                </div>
+                </Card>
               </div>
-            )}
-            
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Input */}
