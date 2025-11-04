@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, ExternalLink, Bug } from "lucide-react";
+import { Loader2, RefreshCw, ExternalLink, Bug, AlertTriangle } from "lucide-react";
 import { DeviceSelector } from "./DeviceSelector";
 import { ErrorOverlay } from "./ErrorOverlay";
+import { sanitizePreviewCode, validateCodeSafety } from "@/utils/codeSanitizer";
+import { DEVICE_DIMENSIONS, UI_CONFIG } from "@/config/constants";
+import { useToast } from "@/hooks/use-toast";
 
 interface LivePreviewProps {
   generatedCode?: string;
@@ -16,16 +19,10 @@ interface LivePreviewProps {
 
 type DeviceType = 'desktop' | 'tablet' | 'mobile';
 
-const deviceDimensions = {
-  desktop: { width: '100%', height: '100%' },
-  tablet: { width: '768px', height: '1024px' },
-  mobile: { width: '375px', height: '667px' }
-};
-
-export function LivePreview({ 
-  generatedCode = '', 
-  isBuilding = false, 
-  buildErrors = [], 
+export function LivePreview({
+  generatedCode = '',
+  isBuilding = false,
+  buildErrors = [],
   onRefresh,
   onOpenExternal,
   className = ''
@@ -33,29 +30,40 @@ export function LivePreview({
   const [selectedDevice, setSelectedDevice] = useState<DeviceType>('desktop');
   const [previewContent, setPreviewContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [securityWarnings, setSecurityWarnings] = useState<string[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { toast } = useToast();
 
-  // Generate preview HTML content
+  // Generate preview HTML content with proper security
   useEffect(() => {
     if (generatedCode) {
       setIsLoading(true);
+      setSecurityWarnings([]);
 
-      // Sanitize and validate code before preview
-      const sanitizedCode = generatedCode.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // Validate code safety first
+      const validation = validateCodeSafety(generatedCode);
+      if (!validation.safe) {
+        setSecurityWarnings(validation.issues);
+        toast({
+          title: "Security Warning",
+          description: `Code contains ${validation.issues.length} security issue(s) and will be sanitized.`,
+          variant: "destructive",
+        });
+      }
 
-      // Create a complete HTML document for preview with production CDN scripts
+      // Sanitize the code using DOMPurify
+      const sanitizedCode = sanitizePreviewCode(generatedCode);
+
+      // Create a complete HTML document for preview
+      // Note: This displays sanitized HTML as text, not executes it
       const htmlContent = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com;">
           <title>BMAD Preview</title>
-          <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js" integrity="sha384-zCubeKpXV0r6rKdNR8LHZN7V1hXD7Vf+YRYjfJCa+YYZhVVz8vjYGPj5qJ1pJ8JI"></script>
-          <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" integrity="sha384-3gBPCpI4VSJpUPUKXUqvYS1hXD7Vf+YRYjfJCa+YYZhVVz8vjYGPj5qJ1pJ8JI"></script>
-          <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
-          <script src="https://cdn.tailwindcss.com"></script>
+          <script src="https://cdn.tailwindcss.com/3.3.5"></script>
           <style>
             body {
               margin: 0;
@@ -69,34 +77,55 @@ export function LivePreview({
               align-items: center;
               justify-content: center;
             }
-            .error-display {
-              background: #fee2e2;
-              border: 1px solid #fecaca;
-              color: #dc2626;
-              padding: 16px;
-              border-radius: 8px;
-              margin: 16px;
-            }
             .code-display {
-              background: #f3f4f6;
+              background: white;
               border: 1px solid #e5e7eb;
-              padding: 16px;
-              border-radius: 8px;
+              padding: 24px;
+              border-radius: 12px;
               margin: 16px;
-              font-family: 'Courier New', monospace;
-              white-space: pre-wrap;
-              word-break: break-word;
+              box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            }
+            .security-warning {
+              background: #fef3c7;
+              border: 1px solid #fde68a;
+              color: #92400e;
+              padding: 12px;
+              border-radius: 8px;
+              margin-bottom: 16px;
+              font-size: 14px;
             }
           </style>
         </head>
         <body>
           <div id="preview-root" class="preview-container">
-            <div style="text-align: center; color: #64748b;">
-              <h2>BMAD Live Preview</h2>
-              <p>Generated content will appear below:</p>
-              <div class="code-display">${sanitizedCode || 'No code generated yet'}</div>
+            <div class="code-display">
+              ${validation.issues.length > 0 ? `
+                <div class="security-warning">
+                  <strong>⚠️ Security Issues Detected and Removed:</strong>
+                  <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                    ${validation.issues.map(issue => `<li>${issue}</li>`).join('')}
+                  </ul>
+                </div>
+              ` : ''}
+              <div style="text-align: center; color: #64748b; margin-bottom: 16px;">
+                <h2 style="margin: 0 0 8px 0;">BMAD Live Preview</h2>
+                <p style="margin: 0;">Sanitized HTML Content:</p>
+              </div>
+              <div id="preview-content"></div>
             </div>
           </div>
+          <script>
+            // Safely inject sanitized content
+            (function() {
+              const container = document.getElementById('preview-content');
+              if (container) {
+                // Create a text node or safely set innerHTML with already-sanitized content
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = ${JSON.stringify(sanitizedCode || '<p style="color: #9ca3af;">No code generated yet</p>')};
+                container.appendChild(tempDiv);
+              }
+            })();
+          </script>
         </body>
         </html>
       `;
@@ -104,20 +133,27 @@ export function LivePreview({
       setPreviewContent(htmlContent);
 
       // Simulate loading time for better UX
-      setTimeout(() => setIsLoading(false), 1000);
+      setTimeout(() => setIsLoading(false), UI_CONFIG.PREVIEW_LOAD_DELAY);
     }
-  }, [generatedCode]);
+  }, [generatedCode, toast]);
 
   const handleRefresh = () => {
     setIsLoading(true);
     if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src;
+      // Force iframe reload by resetting src
+      const currentSrc = iframeRef.current.src;
+      iframeRef.current.src = 'about:blank';
+      setTimeout(() => {
+        if (iframeRef.current) {
+          iframeRef.current.src = currentSrc;
+        }
+      }, 10);
     }
     onRefresh?.();
     setTimeout(() => setIsLoading(false), 500);
   };
 
-  const dimensions = deviceDimensions[selectedDevice];
+  const dimensions = DEVICE_DIMENSIONS[selectedDevice];
 
   return (
     <Card className={`flex flex-col h-full ${className}`}>
@@ -135,6 +171,12 @@ export function LivePreview({
             <div className="flex items-center gap-2 text-sm text-destructive">
               <Bug className="h-4 w-4" />
               {buildErrors.length} error(s)
+            </div>
+          )}
+          {securityWarnings.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-yellow-600">
+              <AlertTriangle className="h-4 w-4" />
+              {securityWarnings.length} security issue(s) sanitized
             </div>
           )}
         </div>

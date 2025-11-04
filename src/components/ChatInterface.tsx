@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Message, Agent, ChatState } from "../types/bmad";
 import { ChatMessage } from "./ChatMessage";
 import { AgentSelector } from "./AgentSelector";
@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Send, Loader2, Sparkles, Command } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VALIDATION, ERROR_MESSAGES } from "@/config/constants";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatInterfaceProps {
   chatState: ChatState;
@@ -18,40 +20,79 @@ interface ChatInterfaceProps {
   className?: string;
 }
 
-export function ChatInterface({ 
-  chatState, 
-  availableAgents, 
-  onSendMessage, 
+export function ChatInterface({
+  chatState,
+  availableAgents,
+  onSendMessage,
   onAgentChange,
   onCodeGeneration,
-  className 
+  className
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastMessageRef = useRef<number>(0);
+  const { toast } = useToast();
 
+  // Only scroll when new messages are added, not on every change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatState.messages]);
+    if (chatState.messages.length > lastMessageRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      lastMessageRef.current = chatState.messages.length;
+    }
+  }, [chatState.messages.length]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate input
     const trimmedInput = input.trim();
-    if (!trimmedInput || chatState.isTyping) return;
 
-    // Validate length (max 5000 characters)
-    if (trimmedInput.length > 5000) {
-      console.warn('Message too long. Maximum 5000 characters allowed.');
+    if (!trimmedInput) {
+      toast({
+        title: "Empty Message",
+        description: "Please enter a message before sending.",
+        variant: "destructive",
+      });
       return;
     }
 
+    if (chatState.isTyping) {
+      toast({
+        title: "Agent Busy",
+        description: "Please wait for the agent to finish responding.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate length
+    if (trimmedInput.length > VALIDATION.MAX_MESSAGE_LENGTH) {
+      toast({
+        title: "Message Too Long",
+        description: ERROR_MESSAGES.MESSAGE_TOO_LONG,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Rate limiting check
+    const now = Date.now();
+    if (now - lastMessageRef.current < VALIDATION.RATE_LIMIT_DELAY) {
+      toast({
+        title: "Slow Down",
+        description: ERROR_MESSAGES.MESSAGE_RATE_LIMIT,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    lastMessageRef.current = now;
     const messageType = trimmedInput.startsWith('*') ? 'command' : 'text';
     onSendMessage(trimmedInput, messageType);
     setInput("");
-  };
+  }, [input, chatState.isTyping, onSendMessage, toast]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -189,7 +230,7 @@ export function ChatInterface({
               placeholder={`Message ${chatState.activeAgent.name}... (use * for commands)`}
               disabled={chatState.isTyping}
               className="pr-10"
-              maxLength={5000}
+              maxLength={VALIDATION.MAX_MESSAGE_LENGTH}
               aria-label="Message input"
               aria-describedby="input-help"
             />
@@ -215,7 +256,7 @@ export function ChatInterface({
         
         <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground" id="input-help">
           <span>Press Enter to send, Shift+Enter for new line</span>
-          <span>Commands start with * (max 5000 characters)</span>
+          <span>Commands start with * (max {VALIDATION.MAX_MESSAGE_LENGTH} characters)</span>
         </div>
       </div>
     </div>

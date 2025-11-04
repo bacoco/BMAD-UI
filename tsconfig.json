@@ -9,11 +9,28 @@
     "paths": {
       "@/*": ["./src/*"]
     },
+    // Strict type checking
     "strict": true,
     "noUnusedParameters": true,
+    "noUnusedLocals": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    // Module resolution
     "skipLibCheck": true,
     "allowJs": false,
-    "noUnusedLocals": true,
-    "strictNullChecks": true
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Type safety
+    "noImplicitAny": true,
+    "alwaysStrict": true
   }
 }

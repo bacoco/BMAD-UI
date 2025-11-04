@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Upload, Link, FileCode, Sparkles, Copy, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VALIDATION, ERROR_MESSAGES } from "@/config/constants";
+import { useToast } from "@/hooks/use-toast";
 
 interface HTMLSample {
   id: string;
@@ -29,36 +31,116 @@ export function VisualBuilder({ onCodeGeneration, className }: VisualBuilderProp
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [chatInput, setChatInput] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const lastUploadTime = useRef<number>(0);
+  const { toast } = useToast();
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  /**
+   * Validate image file content by checking magic bytes
+   */
+  const validateImageContent = async (file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const arr = new Uint8Array(e.target?.result as ArrayBuffer);
+
+        // Check magic bytes for common image formats
+        const signatures = {
+          jpeg: [0xFF, 0xD8, 0xFF],
+          png: [0x89, 0x50, 0x4E, 0x47],
+          gif: [0x47, 0x49, 0x46],
+          webp: [0x52, 0x49, 0x46, 0x46], // RIFF
+          svg: [0x3C, 0x73, 0x76, 0x67], // <svg or
+          svgAlt: [0x3C, 0x3F, 0x78, 0x6D], // <?xml
+        };
+
+        // Check if file matches any known image signature
+        const isValid = Object.values(signatures).some(sig => {
+          return sig.every((byte, index) => arr[index] === byte);
+        });
+
+        resolve(isValid);
+      };
+      reader.onerror = () => resolve(false);
+      reader.readAsArrayBuffer(file.slice(0, 12)); // Read first 12 bytes
+    });
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Please upload a valid image file');
+    // Rate limiting check
+    const now = Date.now();
+    if (now - lastUploadTime.current < VALIDATION.RATE_LIMIT_DELAY) {
+      setUploadError(ERROR_MESSAGES.UPLOAD_RATE_LIMIT);
+      toast({
+        title: "Too Fast",
+        description: ERROR_MESSAGES.UPLOAD_RATE_LIMIT,
+        variant: "destructive",
+      });
       return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setUploadError('Image size must be less than 5MB');
+    // Validate file type
+    if (!VALIDATION.ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setUploadError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+      toast({
+        title: "Invalid File Type",
+        description: ERROR_MESSAGES.INVALID_FILE_TYPE,
+        variant: "destructive",
+      });
+      event.target.value = ''; // Reset input
+      return;
+    }
+
+    // Validate file size
+    if (file.size > VALIDATION.MAX_FILE_SIZE) {
+      setUploadError(ERROR_MESSAGES.FILE_TOO_LARGE);
+      toast({
+        title: "File Too Large",
+        description: ERROR_MESSAGES.FILE_TOO_LARGE,
+        variant: "destructive",
+      });
+      event.target.value = ''; // Reset input
+      return;
+    }
+
+    // Validate actual file content (magic bytes check)
+    const isValidContent = await validateImageContent(file);
+    if (!isValidContent) {
+      setUploadError(ERROR_MESSAGES.INVALID_IMAGE_CONTENT);
+      toast({
+        title: "Invalid Image",
+        description: ERROR_MESSAGES.INVALID_IMAGE_CONTENT,
+        variant: "destructive",
+      });
+      event.target.value = ''; // Reset input
       return;
     }
 
     setUploadError(null);
+    lastUploadTime.current = now;
+
     const reader = new FileReader();
 
     reader.onload = (e) => {
       const result = e.target?.result;
       if (typeof result === 'string') {
         setUploadedImage(result);
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully",
+        });
       }
     };
 
     reader.onerror = () => {
-      setUploadError('Failed to read image file. Please try again.');
+      setUploadError(ERROR_MESSAGES.FILE_READ_ERROR);
+      toast({
+        title: "Upload Error",
+        description: ERROR_MESSAGES.FILE_READ_ERROR,
+        variant: "destructive",
+      });
     };
 
     reader.readAsDataURL(file);

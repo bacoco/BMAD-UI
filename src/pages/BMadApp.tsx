@@ -14,6 +14,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Code, Eye, FileText, Palette } from "lucide-react";
+import { sanitizePreviewCode } from "../utils/codeSanitizer";
+import { API_CONFIG, UI_CONFIG } from "../config/constants";
+import { useToast } from "@/hooks/use-toast";
 
 const mockProject: Project = {
   id: "bmad-project-1",
@@ -28,14 +31,14 @@ const mockProject: Project = {
   createdAt: new Date(),
   config: {
     llm: {
-      provider: "claude-code",
+      provider: API_CONFIG.LLM_PROVIDER,
       apiKey: "",
-      model: "claude-3-sonnet-20240229",
-      baseUrl: "https://api.anthropic.com/v1"
+      model: API_CONFIG.DEFAULT_MODEL,
+      baseUrl: API_CONFIG.BASE_URL
     },
     bmad: {
-      version: "4.30.1",
-      agentTeam: "full-stack",
+      version: API_CONFIG.BMAD_VERSION,
+      agentTeam: API_CONFIG.DEFAULT_TEAM,
       templates: {}
     }
   }
@@ -48,19 +51,18 @@ export default function BMadApp() {
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildErrors, setBuildErrors] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('chat');
+  const { toast } = useToast();
 
   const handleCodeGeneration = useCallback((code: string) => {
     setIsBuilding(true);
     setGeneratedCode(code);
     setBuildErrors([]); // Clear previous errors
 
-    // Simulate build process
+    // Process code generation (in real app, this would call build service)
     setTimeout(() => {
       setIsBuilding(false);
-      // Simulate occasional build errors for testing
-      if (Math.random() > 0.8) {
-        setBuildErrors(['Example build error: Component not found', 'Warning: Unused variable']);
-      }
+      // Build errors would be populated by actual build service
+      // For now, code generation is successful
     }, 2000);
   }, []);
 
@@ -71,33 +73,60 @@ export default function BMadApp() {
   };
 
   const handleOpenExternal = () => {
+    if (!generatedCode) {
+      toast({
+        title: "No Code to Preview",
+        description: "Please generate some code first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Sanitize code before opening
+    const sanitizedCode = sanitizePreviewCode(generatedCode);
+
     // Create a blob URL for safer preview handling
     const previewHtml = `
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
         <head>
           <title>BMAD Preview</title>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <script src="https://cdn.tailwindcss.com"></script>
+          <script src="https://cdn.tailwindcss.com/3.3.5"></script>
+          <style>
+            body {
+              margin: 0;
+              padding: 16px;
+              font-family: system-ui, -apple-system, sans-serif;
+            }
+          </style>
         </head>
         <body>
-          <div id="root"></div>
-          <script>
-            // Sandboxed preview - code is displayed, not executed directly
-            const codeContainer = document.getElementById('root');
-            codeContainer.innerHTML = \`${generatedCode.replace(/`/g, '\\`')}\`;
-          </script>
+          <div id="root">${sanitizedCode}</div>
         </body>
       </html>
     `;
 
     const blob = new Blob([previewHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    const newWindow = window.open(url, '_blank');
 
-    // Clean up blob URL after a delay
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    // Properly clean up blob URL
+    if (newWindow) {
+      // Wait for window to load before revoking URL
+      newWindow.addEventListener('load', () => {
+        setTimeout(() => URL.revokeObjectURL(url), UI_CONFIG.BLOB_URL_CLEANUP_DELAY);
+      });
+    } else {
+      // If window.open was blocked, revoke immediately
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to open the preview.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
