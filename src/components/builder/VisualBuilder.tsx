@@ -28,16 +28,40 @@ export function VisualBuilder({ onCodeGeneration, className }: VisualBuilderProp
   const [isGenerating, setIsGenerating] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [chatInput, setChatInput] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setUploadedImage(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please upload a valid image file');
+      return;
     }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setUploadError('Image size must be less than 5MB');
+      return;
+    }
+
+    setUploadError(null);
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (typeof result === 'string') {
+        setUploadedImage(result);
+      }
+    };
+
+    reader.onerror = () => {
+      setUploadError('Failed to read image file. Please try again.');
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const generateHtmlSamples = async () => {
@@ -171,10 +195,16 @@ export function VisualBuilder({ onCodeGeneration, className }: VisualBuilderProp
                   accept="image/*"
                   onChange={handleImageUpload}
                   className="cursor-pointer"
+                  aria-label="Upload image file"
                 />
+                {uploadError && (
+                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                    {uploadError}
+                  </div>
+                )}
                 {uploadedImage && (
                   <div className="border rounded-lg p-2">
-                    <img src={uploadedImage} alt="Uploaded" className="w-full h-32 object-cover rounded" />
+                    <img src={uploadedImage} alt="Uploaded design preview" className="w-full h-32 object-cover rounded" />
                   </div>
                 )}
               </div>

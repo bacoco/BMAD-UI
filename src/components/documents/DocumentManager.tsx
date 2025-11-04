@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,18 +9,16 @@ import { Document } from "../../types/bmad";
 import { DocumentViewer } from "./DocumentViewer";
 import { DocumentEditor } from "./DocumentEditor";
 import { TemplateLibrary } from "./TemplateLibrary";
-import { 
-  Search, 
-  FileText, 
-  Plus, 
-  Filter, 
+import { mockDocuments } from "../../data/mockDocuments";
+import {
+  Search,
+  FileText,
+  Plus,
   Calendar,
   User,
   Edit3,
   Eye,
-  Download,
-  Share,
-  Archive
+  Share
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,64 +41,29 @@ const documentTypes = [
   { id: 'tech-doc', name: 'Technical', icon: FileText }
 ];
 
-const mockDocuments: Document[] = [
-  {
-    id: 'doc-1',
-    type: 'prd',
-    title: 'BMAD UI Builder - Product Requirements',
-    content: '# Product Requirements Document\n\n## Overview\nThe BMAD UI Builder is a comprehensive visual development platform...',
-    createdBy: 'product-manager',
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-20'),
-    status: 'approved',
-    version: 2,
-    collaborators: ['business-analyst', 'architect']
-  },
-  {
-    id: 'doc-2',
-    type: 'architecture',
-    title: 'System Architecture Design',
-    content: '# System Architecture\n\n## Frontend Architecture\n- React with TypeScript\n- Vite for build tooling...',
-    createdBy: 'architect',
-    createdAt: new Date('2024-01-18'),
-    updatedAt: new Date('2024-01-22'),
-    status: 'review',
-    version: 1,
-    collaborators: ['developer']
-  },
-  {
-    id: 'doc-3',
-    type: 'story',
-    title: 'User Story: Component Library',
-    content: '# User Story: Component Library\n\nAs a developer, I want to drag and drop components...',
-    createdBy: 'scrum-master',
-    createdAt: new Date('2024-01-20'),
-    updatedAt: new Date('2024-01-20'),
-    status: 'draft',
-    version: 1,
-    collaborators: ['ux-expert', 'developer']
-  }
-];
-
-export function DocumentManager({ 
-  documents = mockDocuments, 
+export function DocumentManager({
+  documents = mockDocuments,
   onDocumentCreate,
   onDocumentEdit,
   onDocumentDelete,
   onDocumentShare,
-  className 
+  className
 }: DocumentManagerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'view' | 'edit'>('list');
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.content.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = selectedType === 'all' || doc.type === selectedType;
-    return matchesSearch && matchesType;
-  });
+  // Memoize filtered documents for performance
+  const filteredDocuments = useMemo(() => {
+    const searchLower = searchTerm.toLowerCase();
+    return documents.filter(doc => {
+      const matchesSearch = doc.title.toLowerCase().includes(searchLower) ||
+                           doc.content.toLowerCase().includes(searchLower);
+      const matchesType = selectedType === 'all' || doc.type === selectedType;
+      return matchesSearch && matchesType;
+    });
+  }, [documents, searchTerm, selectedType]);
 
   const getStatusColor = (status: Document['status']) => {
     switch (status) {

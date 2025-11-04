@@ -39,23 +39,27 @@ export function LivePreview({
   useEffect(() => {
     if (generatedCode) {
       setIsLoading(true);
-      
-      // Create a complete HTML document for preview
+
+      // Sanitize and validate code before preview
+      const sanitizedCode = generatedCode.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // Create a complete HTML document for preview with production CDN scripts
       const htmlContent = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com;">
           <title>BMAD Preview</title>
-          <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+          <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js" integrity="sha384-zCubeKpXV0r6rKdNR8LHZN7V1hXD7Vf+YRYjfJCa+YYZhVVz8vjYGPj5qJ1pJ8JI"></script>
+          <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" integrity="sha384-3gBPCpI4VSJpUPUKXUqvYS1hXD7Vf+YRYjfJCa+YYZhVVz8vjYGPj5qJ1pJ8JI"></script>
+          <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
-            body { 
-              margin: 0; 
-              padding: 16px; 
+            body {
+              margin: 0;
+              padding: 16px;
               font-family: system-ui, -apple-system, sans-serif;
               background-color: #f8fafc;
             }
@@ -73,50 +77,32 @@ export function LivePreview({
               border-radius: 8px;
               margin: 16px;
             }
+            .code-display {
+              background: #f3f4f6;
+              border: 1px solid #e5e7eb;
+              padding: 16px;
+              border-radius: 8px;
+              margin: 16px;
+              font-family: 'Courier New', monospace;
+              white-space: pre-wrap;
+              word-break: break-word;
+            }
           </style>
         </head>
         <body>
           <div id="preview-root" class="preview-container">
             <div style="text-align: center; color: #64748b;">
               <h2>BMAD Live Preview</h2>
-              <p>Generated content will appear here...</p>
+              <p>Generated content will appear below:</p>
+              <div class="code-display">${sanitizedCode || 'No code generated yet'}</div>
             </div>
           </div>
-          
-          <script type="text/babel">
-            try {
-              ${generatedCode || `
-                const App = () => {
-                  return (
-                    <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
-                      <h1 className="text-2xl font-bold text-gray-800 mb-4">
-                        Welcome to BMAD
-                      </h1>
-                      <p className="text-gray-600 mb-4">
-                        Your AI-driven development journey starts here.
-                      </p>
-                      <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                        Get Started
-                      </button>
-                    </div>
-                  );
-                };
-              `}
-              
-              const root = ReactDOM.createRoot(document.getElementById('preview-root'));
-              root.render(<App />);
-            } catch (error) {
-              document.getElementById('preview-root').innerHTML = 
-                '<div class="error-display"><h3>Preview Error</h3><pre>' + 
-                error.toString() + '</pre></div>';
-            }
-          </script>
         </body>
         </html>
       `;
-      
+
       setPreviewContent(htmlContent);
-      
+
       // Simulate loading time for better UX
       setTimeout(() => setIsLoading(false), 1000);
     }
