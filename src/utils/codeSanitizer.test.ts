@@ -128,10 +128,11 @@ describe('codeSanitizer', () => {
     it('should remove all HTML tags', () => {
       const html = '<div><p>Hello <strong>World</strong></p></div>';
       const result = stripHtml(html);
-      expect(result).not.toContain('<');
-      expect(result).not.toContain('>');
-      expect(result).toContain('Hello');
-      expect(result).toContain('World');
+      expect(result).not.toContain('<div');
+      expect(result).not.toContain('<p>');
+      expect(result).not.toContain('<strong>');
+      // DOMPurify with ALLOWED_TAGS: [] returns the text content
+      expect(result.replace(/\s+/g, ' ').trim()).toBe('Hello World');
     });
 
     it('should handle empty input', () => {

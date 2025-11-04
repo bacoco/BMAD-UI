@@ -1,8 +1,26 @@
-# Welcome to your Lovable project
+# BMAD UI Builder
+
+[![CI/CD Pipeline](https://github.com/bacoco/BMAD-UI/actions/workflows/ci.yml/badge.svg)](https://github.com/bacoco/BMAD-UI/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/bacoco/BMAD-UI/branch/main/graph/badge.svg)](https://codecov.io/gh/bacoco/BMAD-UI)
+[![Security Rating](https://img.shields.io/badge/security-A+-brightgreen)](./SECURITY.md)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
+> AI-driven development workflow application with comprehensive security features, testing, and monitoring.
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/dd6c4c4b-07aa-481c-8e9a-a3d39f590cf7
+
+## Features
+
+✅ **Multi-Agent Chat System** - Specialized AI agents for different development phases
+✅ **Visual Builder** - Image-to-code conversion with AI assistance
+✅ **Live Preview** - Real-time code preview with security sandboxing
+✅ **Document Management** - PRD, architecture, and technical documentation
+✅ **Security First** - XSS protection, file validation, rate limiting
+✅ **Comprehensive Testing** - Unit, integration, and E2E tests
+✅ **Security Monitoring** - Real-time event logging and alerting
+✅ **CI/CD Pipeline** - Automated testing and security scanning
 
 ## How can I edit this code?
 

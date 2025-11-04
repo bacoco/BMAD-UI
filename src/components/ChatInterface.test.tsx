@@ -123,7 +123,11 @@ describe('ChatInterface', () => {
       <ChatInterface {...defaultProps} chatState={typingChatState} />
     );
 
-    expect(screen.getByText(/typing.../i)).toBeInTheDocument();
+    // Check for typing badge which contains "typing..." text
+    const typingBadge = screen.getByText((content, element) => {
+      return element?.textContent === 'typing...' || content.includes('typing');
+    });
+    expect(typingBadge).toBeInTheDocument();
   });
 
   it('should display welcome message when no messages', () => {

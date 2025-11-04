@@ -122,13 +122,23 @@ describe('useBmadChat', () => {
       result.current.sendMessage('Message 1');
     });
 
+    // Wait for user message
     await waitFor(() => {
-      expect(result.current.chatState.messages).toHaveLength(2);
+      expect(result.current.chatState.messages.length).toBeGreaterThanOrEqual(1);
     });
+
+    // Wait for agent response
+    await waitFor(
+      () => {
+        expect(result.current.chatState.messages).toHaveLength(2);
+      },
+      { timeout: 5000 }
+    );
 
     const messageIds = result.current.chatState.messages.map((m) => m.id);
     const uniqueIds = new Set(messageIds);
 
     expect(uniqueIds.size).toBe(messageIds.length);
+    expect(uniqueIds.size).toBe(2);
   });
 });

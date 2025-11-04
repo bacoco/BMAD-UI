@@ -10,7 +10,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
       exclude: [
         'node_modules/',
         'src/test/',
@@ -19,6 +19,12 @@ export default defineConfig({
         '**/dist/**',
         '**/components/ui/**', // Exclude shadcn components from coverage
       ],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80,
+      },
     },
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
   },
